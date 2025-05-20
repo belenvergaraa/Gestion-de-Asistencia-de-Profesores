@@ -11,4 +11,4 @@ El calculador de masa corporal y TMB (Tasa Metabólica Basal) va aser una app we
 •Conocer su TMB  permite a los individuos ajustar su ingesta calórica según sus objetivos de peso.
 
 -Huilen Antonela Ceballos Centurion - DNI: 486001748 - centurionhuilen7@gmail.com
--Ana Belen Vergara - DNI: 48816879 - belen2008vergara@gmai.com
+-Ana Belen Vergara - DNI: 48816879 - belen2008vergara@gmail.com
