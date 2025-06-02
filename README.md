@@ -14,5 +14,5 @@ Introdicción: Por lo que este proyecto se basa en  los siguientes objetivos:
 En pocas palabras, esta app web de gestión de asistencia no solo simplificará el proceso de registro, sino que también mejora la comunicación y la eficiencia en el entorno educativo.
 
 
--Huilen Antonela Ceballos Centurion - DNI: 486001748 - centurionhuilen7@gmail.com
+-Huilen Antonela Ceballos Centurion - DNI: 48601748 - centurionhuilen7@gmail.com
 -Ana Belen Vergara - DNI: 48816879 - belen2008vergara@gmail.com
