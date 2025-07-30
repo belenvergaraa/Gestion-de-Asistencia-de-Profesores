@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Iniciar Sesión - Sistema de Asistencia{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <i class="fas fa-user-circle fa-4x text-primary mb-3"></i>
+                    <h3 class="fw-bold">Iniciar Sesión</h3>
+                    <p class="text-muted">Accede a tu cuenta de profesor</p>
+                </div>
+
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-envelope"></i>
+                            </span>
+                            <input type="email" class="form-control" id="email" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Contraseña</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-lock"></i>
+                            </span>
+                            <input type="password" class="form-control" id="password" required>
+                            <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="d-grid mb-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión
+                        </button>
+                    </div>
+
+                    <div class="text-center">
+                        <p class="mb-0">¿No tienes cuenta? 
+                            <a href="{{ url_for('register') }}" class="text-primary fw-bold">Regístrate aquí</a>
+                        </p>
+                    </div>
+                </form>
+
+                <div id="message" class="mt-3"></div>
+            </div>
+        </div>
+
+        <div class="text-center mt-4">
+            <div class="card bg-transparent border-0">
+                <div class="card-body">
+                    <h6 class="text-white mb-2">¿Eres administrador?</h6>
+                    <a href="{{ url_for('gestionar_profesores') }}" class="btn btn-outline-light btn-sm">
+                        <i class="fas fa-cog me-1"></i>Panel de Administración
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Toggle password visibility
+    $('#togglePassword').click(function() {
+        const passwordField = $('#password');
+        const icon = $(this).find('i');
+        
+        if (passwordField.attr('type') === 'password') {
+            passwordField.attr('type', 'text');
+            icon.removeClass('fa-eye').addClass('fa-eye-slash');
+        } else {
+            passwordField.attr('type', 'password');
+            icon.removeClass('fa-eye-slash').addClass('fa-eye');
+        }
+    });
+
+    // Handle login form submission
+    $('#loginForm').submit(function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            email: $('#email').val(),
+            password: $('#password').val()
+        };
+
+        $.ajax({
+            url: '/api/login',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                if (response.success) {
+                    $('#message').html(`
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            ${response.message}
+                        </div>
+                    `);
+                    
+                    // Redirect to dashboard after 1 second
+                    setTimeout(function() {
+                        window.location.href = '/dashboard';
+                    }, 1000);
+                }
+            },
+            error: function(xhr) {
+                const response = JSON.parse(xhr.responseText);
+                $('#message').html(`
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        ${response.message}
+                    </div>
+                `);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

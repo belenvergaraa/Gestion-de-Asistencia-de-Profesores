@@ -1,9 +1,12 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, flash
 import sqlite3
 import datetime
 from flask_cors import CORS
+from werkzeug.security import generate_password_hash, check_password_hash
+import secrets
 
 app = Flask(__name__)
+app.secret_key = secrets.token_hex(16)
 CORS(app)
 
 # Configuración de la base de datos
@@ -14,14 +17,16 @@ def init_db():
     conn = sqlite3.connect(DATABASE)
     cursor = conn.cursor()
     
-    # Tabla de profesores
+    # Tabla de profesores (con autenticación)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS profesores (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nombre TEXT NOT NULL,
             apellido TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
             telefono TEXT,
+            activo BOOLEAN DEFAULT 1,
             fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -67,7 +72,7 @@ def init_db():
         )
     ''')
     
-    # Tabla de asistencias
+    # Tabla de asistencias (con información de puntualidad)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS asistencias (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,7 +81,10 @@ def init_db():
             curso_id INTEGER,
             horario_id INTEGER,
             fecha DATE NOT NULL,
+            hora_llegada TIME,
             presente BOOLEAN NOT NULL DEFAULT 1,
+            estado_llegada TEXT DEFAULT 'puntual' CHECK (estado_llegada IN ('temprano', 'puntual', 'tarde')),
+            minutos_diferencia INTEGER DEFAULT 0,
             observaciones TEXT,
             fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (profesor_id) REFERENCES profesores (id),
@@ -135,10 +143,134 @@ def init_db():
     conn.commit()
     conn.close()
 
+def login_required(f):
+    """Decorador para requerir autenticación"""
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'profesor_id' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.route('/')
 def index():
     """Página principal"""
     return render_template('index.html')
+
+@app.route('/login')
+def login():
+    """Página de login"""
+    return render_template('login.html')
+
+@app.route('/register')
+def register():
+    """Página de registro"""
+    return render_template('register.html')
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    """API para login de profesores"""
+    data = request.json
+    
+    try:
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT id, password_hash, nombre, apellido FROM profesores WHERE email = ? AND activo = 1', 
+                      (data['email'],))
+        profesor = cursor.fetchone()
+        conn.close()
+        
+        if profesor and check_password_hash(profesor[1], data['password']):
+            session['profesor_id'] = profesor[0]
+            session['profesor_nombre'] = f"{profesor[2]} {profesor[3]}"
+            return jsonify({'success': True, 'message': 'Login exitoso'})
+        else:
+            return jsonify({'success': False, 'message': 'Email o contraseña incorrectos'}), 401
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+@app.route('/api/register', methods=['POST'])
+def api_register():
+    """API para registro de nuevos profesores"""
+    data = request.json
+    
+    try:
+        conn = sqlite3.connect(DATABASE)
+        cursor = conn.cursor()
+        
+        # Verificar si el email ya existe
+        cursor.execute('SELECT id FROM profesores WHERE email = ?', (data['email'],))
+        if cursor.fetchone():
+            return jsonify({'success': False, 'message': 'Este email ya está registrado'}), 400
+        
+        # Crear nuevo profesor
+        password_hash = generate_password_hash(data['password'])
+        cursor.execute('''
+            INSERT INTO profesores (nombre, apellido, email, password_hash, telefono)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (data['nombre'], data['apellido'], data['email'], password_hash, data.get('telefono', '')))
+        
+        profesor_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        # Auto login después del registro
+        session['profesor_id'] = profesor_id
+        session['profesor_nombre'] = f"{data['nombre']} {data['apellido']}"
+        
+        return jsonify({'success': True, 'profesor_id': profesor_id, 'message': 'Registro exitoso'})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+@app.route('/logout')
+def logout():
+    """Cerrar sesión"""
+    session.clear()
+    flash('Has cerrado sesión exitosamente', 'info')
+    return redirect(url_for('login'))
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    """Dashboard del profesor logueado"""
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    
+    profesor_id = session['profesor_id']
+    
+    # Obtener asignaciones del profesor
+    cursor.execute('''
+        SELECT a.id, m.nombre as materia, c.año, c.division, m.id as materia_id, c.id as curso_id
+        FROM asignaciones a
+        JOIN materias m ON a.materia_id = m.id
+        JOIN cursos c ON a.curso_id = c.id
+        WHERE a.profesor_id = ?
+        ORDER BY c.año, c.division, m.nombre
+    ''', (profesor_id,))
+    asignaciones = cursor.fetchall()
+    
+    # Asistencias recientes del profesor
+    cursor.execute('''
+        SELECT m.nombre as materia, c.año || "° " || c.division as curso,
+               h.hora_inicio || " - " || h.hora_fin as horario,
+               a.fecha, a.estado_llegada, a.hora_llegada, a.minutos_diferencia
+        FROM asistencias a
+        JOIN materias m ON a.materia_id = m.id
+        JOIN cursos c ON a.curso_id = c.id
+        JOIN horarios h ON a.horario_id = h.id
+        WHERE a.profesor_id = ?
+        ORDER BY a.fecha DESC, h.hora_inicio DESC
+        LIMIT 10
+    ''', (profesor_id,))
+    asistencias_recientes = cursor.fetchall()
+    
+    conn.close()
+    
+    return render_template('dashboard.html', asignaciones=asignaciones, asistencias_recientes=asistencias_recientes)
 
 @app.route('/profesores')
 def listar_profesores():
@@ -197,33 +329,95 @@ def obtener_asignaciones_profesor(profesor_id):
 
 @app.route('/api/registrar_asistencia', methods=['POST'])
 def api_registrar_asistencia():
-    """API para registrar asistencia"""
+    """API para registrar asistencia con control de puntualidad"""
     data = request.json
     
     try:
         conn = sqlite3.connect(DATABASE)
         cursor = conn.cursor()
         
+        # Obtener información del horario
+        cursor.execute('SELECT hora_inicio FROM horarios WHERE id = ?', (data['horario_id'],))
+        horario = cursor.fetchone()
+        
+        if not horario:
+            return jsonify({'success': False, 'message': 'Horario no encontrado'}), 400
+        
+        # Calcular puntualidad
+        hora_llegada = data.get('hora_llegada', datetime.datetime.now().strftime('%H:%M:%S'))
+        hora_inicio = horario[0]
+        
+        # Convertir a datetime para comparar
+        llegada_dt = datetime.datetime.strptime(hora_llegada, '%H:%M:%S')
+        inicio_dt = datetime.datetime.strptime(hora_inicio, '%H:%M:%S')
+        
+        # Calcular diferencia en minutos
+        diferencia = (llegada_dt - inicio_dt).total_seconds() / 60
+        
+        # Determinar estado de llegada
+        if diferencia <= -5:  # Llegó 5+ minutos antes
+            estado_llegada = 'temprano'
+        elif diferencia <= 5:  # Entre -5 y +5 minutos
+            estado_llegada = 'puntual'
+        else:  # Llegó más de 5 minutos tarde
+            estado_llegada = 'tarde'
+        
         cursor.execute('''
-            INSERT INTO asistencias (profesor_id, materia_id, curso_id, horario_id, fecha, presente, observaciones)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO asistencias (profesor_id, materia_id, curso_id, horario_id, fecha, 
+                                   hora_llegada, presente, estado_llegada, minutos_diferencia, observaciones)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             data['profesor_id'],
             data['materia_id'],
             data['curso_id'],
             data['horario_id'],
             data['fecha'],
+            hora_llegada,
             data.get('presente', True),
+            estado_llegada,
+            int(diferencia),
             data.get('observaciones', '')
         ))
         
         conn.commit()
         conn.close()
         
-        return jsonify({'success': True, 'message': 'Asistencia registrada correctamente'})
+        return jsonify({
+            'success': True, 
+            'message': 'Asistencia registrada correctamente',
+            'estado_llegada': estado_llegada,
+            'minutos_diferencia': int(diferencia)
+        })
     
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 400
+
+@app.route('/registrar_mi_asistencia')
+@login_required
+def registrar_mi_asistencia():
+    """Página para que el profesor registre su propia asistencia"""
+    conn = sqlite3.connect(DATABASE)
+    cursor = conn.cursor()
+    
+    profesor_id = session['profesor_id']
+    
+    # Obtener asignaciones del profesor
+    cursor.execute('''
+        SELECT a.id, m.nombre as materia, c.año, c.division, m.id as materia_id, c.id as curso_id
+        FROM asignaciones a
+        JOIN materias m ON a.materia_id = m.id
+        JOIN cursos c ON a.curso_id = c.id
+        WHERE a.profesor_id = ?
+        ORDER BY c.año, c.division, m.nombre
+    ''', (profesor_id,))
+    asignaciones = cursor.fetchall()
+    
+    # Obtener horarios
+    cursor.execute('SELECT id, hora_inicio, hora_fin, descripcion FROM horarios ORDER BY hora_inicio')
+    horarios = cursor.fetchall()
+    
+    conn.close()
+    return render_template('registrar_mi_asistencia.html', asignaciones=asignaciones, horarios=horarios)
 
 @app.route('/gestionar_profesores')
 def gestionar_profesores():
@@ -248,23 +442,37 @@ def gestionar_profesores():
 
 @app.route('/api/crear_profesor', methods=['POST'])
 def crear_profesor():
-    """API para crear un nuevo profesor"""
+    """API para crear un nuevo profesor (para administradores)"""
     data = request.json
     
     try:
         conn = sqlite3.connect(DATABASE)
         cursor = conn.cursor()
         
+        # Verificar si el email ya existe
+        cursor.execute('SELECT id FROM profesores WHERE email = ?', (data['email'],))
+        if cursor.fetchone():
+            return jsonify({'success': False, 'message': 'Este email ya está registrado'}), 400
+        
+        # Generar contraseña temporal o usar la proporcionada
+        password = data.get('password', 'profesor123')  # Contraseña temporal por defecto
+        password_hash = generate_password_hash(password)
+        
         cursor.execute('''
-            INSERT INTO profesores (nombre, apellido, email, telefono)
-            VALUES (?, ?, ?, ?)
-        ''', (data['nombre'], data['apellido'], data['email'], data.get('telefono', '')))
+            INSERT INTO profesores (nombre, apellido, email, password_hash, telefono)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (data['nombre'], data['apellido'], data['email'], password_hash, data.get('telefono', '')))
         
         profesor_id = cursor.lastrowid
         conn.commit()
         conn.close()
         
-        return jsonify({'success': True, 'profesor_id': profesor_id, 'message': 'Profesor creado correctamente'})
+        return jsonify({
+            'success': True, 
+            'profesor_id': profesor_id, 
+            'message': 'Profesor creado correctamente',
+            'password_temporal': password if 'password' not in data else None
+        })
     
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 400

@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+
+{% block title %}Registrar Mi Asistencia - Sistema de Asistencia{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="text-white fw-bold mb-1">
+            <i class="fas fa-check-circle me-2"></i>
+            Registrar Mi Asistencia
+        </h2>
+        <p class="text-white-50 mb-0">{{ session.profesor_nombre }} - {{ "now"|strftime("%A, %d de %B de %Y") }}</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="fw-bold mb-0">
+                    <i class="fas fa-calendar-check text-success me-2"></i>
+                    Formulario de Asistencia
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="asistenciaForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="fecha" class="form-label">Fecha *</label>
+                            <input type="date" class="form-control" id="fecha" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="hora_llegada" class="form-label">Hora de Llegada *</label>
+                            <div class="input-group">
+                                <input type="time" class="form-control" id="hora_llegada" required>
+                                <button class="btn btn-outline-secondary" type="button" id="usarHoraActual">
+                                    <i class="fas fa-clock me-1"></i>Ahora
+                                </button>
+                            </div>
+                            <div class="form-text">Se registrará automáticamente si llegaste temprano, puntual o tarde</div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="asignacion" class="form-label">Materia y Curso *</label>
+                            <select class="form-select" id="asignacion" required>
+                                <option value="">Selecciona materia y curso</option>
+                                {% for asignacion in asignaciones %}
+                                    <option value="{{ asignacion[4] }}-{{ asignacion[5] }}" 
+                                            data-materia="{{ asignacion[1] }}" 
+                                            data-curso="{{ asignacion[2] }}° {{ asignacion[3] }}">
+                                        {{ asignacion[1] }} - {{ asignacion[2] }}° {{ asignacion[3] }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% if not asignaciones %}
+                                <div class="form-text text-danger">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    No tienes asignaciones. Contacta al administrador.
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="horario" class="form-label">Horario de Clase *</label>
+                            <select class="form-select" id="horario" required>
+                                <option value="">Selecciona el horario</option>
+                                {% for horario in horarios %}
+                                    <option value="{{ horario[0] }}" 
+                                            data-inicio="{{ horario[1] }}" 
+                                            data-fin="{{ horario[2] }}">
+                                        {{ horario[1] }} - {{ horario[2] }} ({{ horario[3] }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="observaciones" class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="observaciones" rows="3" 
+                                  placeholder="Comentarios adicionales (opcional)"></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="presente" checked>
+                                <label class="form-check-label" for="presente">
+                                    Marcar como presente
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="previsualizacion" class="alert alert-info d-none">
+                        <h6><i class="fas fa-eye me-1"></i>Previsualización:</h6>
+                        <div id="previewContent"></div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success" {% if not asignaciones %}disabled{% endif %}>
+                            <i class="fas fa-save me-2"></i>Registrar Asistencia
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="previsualizar()">
+                            <i class="fas fa-eye me-2"></i>Previsualizar
+                        </button>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-arrow-left me-2"></i>Volver al Dashboard
+                        </a>
+                    </div>
+                </form>
+
+                <div id="message" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="fw-bold mb-0">
+                    <i class="fas fa-info-circle text-info me-2"></i>
+                    Información
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h6 class="fw-bold">Hora Actual:</h6>
+                    <div class="badge bg-primary fs-6" id="horaActual">--:--:--</div>
+                </div>
+
+                <div class="mb-3">
+                    <h6 class="fw-bold">Criterios de Puntualidad:</h6>
+                    <ul class="list-unstyled small">
+                        <li class="mb-1">
+                            <span class="badge bg-info me-2">Temprano</span>
+                            5+ minutos antes
+                        </li>
+                        <li class="mb-1">
+                            <span class="badge bg-success me-2">Puntual</span>
+                            ±5 minutos del horario
+                        </li>
+                        <li class="mb-1">
+                            <span class="badge bg-warning me-2">Tarde</span>
+                            Más de 5 minutos después
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="mb-3">
+                    <h6 class="fw-bold">Mis Asignaciones:</h6>
+                    {% if asignaciones %}
+                        {% for asignacion in asignaciones %}
+                            <div class="border rounded p-2 mb-2 small">
+                                <strong>{{ asignacion[1] }}</strong><br>
+                                <span class="text-muted">{{ asignacion[2] }}° {{ asignacion[3] }}</span>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted small">No hay asignaciones disponibles.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="fw-bold mb-0">
+                    <i class="fas fa-clock text-warning me-2"></i>
+                    Horarios de Hoy
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        {% for horario in horarios %}
+                            {% if horario[3] != 'Recreo' and horario[3] != 'Almuerzo' %}
+                            <tr>
+                                <td>{{ horario[1] }} - {{ horario[2] }}</td>
+                                <td><small>{{ horario[3] }}</small></td>
+                            </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Establecer fecha actual por defecto
+    const hoy = new Date().toISOString().split('T')[0];
+    $('#fecha').val(hoy);
+
+    // Actualizar hora cada segundo
+    function actualizarHora() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('es-ES');
+        $('#horaActual').text(timeString);
+    }
+    
+    actualizarHora();
+    setInterval(actualizarHora, 1000);
+
+    // Usar hora actual
+    $('#usarHoraActual').click(function() {
+        const now = new Date();
+        const timeString = now.toTimeString().split(' ')[0].substring(0, 5);
+        $('#hora_llegada').val(timeString);
+        previsualizar();
+    });
+
+    // Auto-previsualizar cuando cambian los campos
+    $('#asignacion, #horario, #hora_llegada').change(previsualizar);
+
+    // Handle form submission
+    $('#asistenciaForm').submit(function(e) {
+        e.preventDefault();
+        
+        const asignacionValue = $('#asignacion').val().split('-');
+        if (asignacionValue.length !== 2) {
+            mostrarMensaje('danger', 'Selecciona una materia y curso válidos');
+            return;
+        }
+
+        const formData = {
+            profesor_id: {{ session.profesor_id }},
+            materia_id: parseInt(asignacionValue[0]),
+            curso_id: parseInt(asignacionValue[1]),
+            horario_id: parseInt($('#horario').val()),
+            fecha: $('#fecha').val(),
+            hora_llegada: $('#hora_llegada').val() + ':00',
+            presente: $('#presente').is(':checked'),
+            observaciones: $('#observaciones').val()
+        };
+
+        $.ajax({
+            url: '/api/registrar_asistencia',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                if (response.success) {
+                    let estadoInfo = '';
+                    if (response.estado_llegada) {
+                        const badges = {
+                            'temprano': 'info',
+                            'puntual': 'success',
+                            'tarde': 'warning'
+                        };
+                        estadoInfo = ` <span class="badge bg-${badges[response.estado_llegada]}">${response.estado_llegada}</span>`;
+                        if (response.minutos_diferencia !== 0) {
+                            estadoInfo += ` (${response.minutos_diferencia > 0 ? '+' : ''}${response.minutos_diferencia} min)`;
+                        }
+                    }
+                    
+                    mostrarMensaje('success', `${response.message}${estadoInfo}`);
+                    
+                    // Limpiar formulario
+                    $('#asistenciaForm')[0].reset();
+                    $('#fecha').val(hoy);
+                    $('#previsualizacion').addClass('d-none');
+                    
+                    // Redirect to dashboard after 3 seconds
+                    setTimeout(function() {
+                        window.location.href = '/dashboard';
+                    }, 3000);
+                }
+            },
+            error: function(xhr) {
+                const response = JSON.parse(xhr.responseText);
+                mostrarMensaje('danger', response.message);
+            }
+        });
+    });
+});
+
+function previsualizar() {
+    const asignacion = $('#asignacion option:selected');
+    const horario = $('#horario option:selected');
+    const horaLlegada = $('#hora_llegada').val();
+    const fecha = $('#fecha').val();
+    
+    if (asignacion.val() && horario.val() && horaLlegada && fecha) {
+        const horaInicio = horario.data('inicio');
+        const materia = asignacion.data('materia');
+        const curso = asignacion.data('curso');
+        
+        // Calcular diferencia
+        const llegada = new Date(`2000-01-01T${horaLlegada}:00`);
+        const inicio = new Date(`2000-01-01T${horaInicio}`);
+        const diferencia = (llegada - inicio) / (1000 * 60); // en minutos
+        
+        let estado = 'puntual';
+        let badgeClass = 'success';
+        if (diferencia <= -5) {
+            estado = 'temprano';
+            badgeClass = 'info';
+        } else if (diferencia > 5) {
+            estado = 'tarde';
+            badgeClass = 'warning';
+        }
+        
+        $('#previewContent').html(`
+            <strong>Materia:</strong> ${materia}<br>
+            <strong>Curso:</strong> ${curso}<br>
+            <strong>Horario:</strong> ${horario.data('inicio')} - ${horario.data('fin')}<br>
+            <strong>Llegada:</strong> ${horaLlegada}<br>
+            <strong>Estado:</strong> <span class="badge bg-${badgeClass}">${estado}</span>
+            ${diferencia !== 0 ? ` (${diferencia > 0 ? '+' : ''}${Math.round(diferencia)} min)` : ''}
+        `);
+        $('#previsualizacion').removeClass('d-none');
+    }
+}
+
+function mostrarMensaje(tipo, mensaje) {
+    $('#message').html(`
+        <div class="alert alert-${tipo} alert-dismissible fade show">
+            <i class="fas fa-${tipo === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+            ${mensaje}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `);
+}
+
+// Verificar parámetro de hora en URL
+$(document).ready(function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hora = urlParams.get('hora');
+    if (hora) {
+        const timeForInput = hora.split(':').slice(0, 2).join(':');
+        $('#hora_llegada').val(timeForInput);
+        previsualizar();
+    }
+});
+</script>
+{% endblock %}

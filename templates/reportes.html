@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% block title %}Reportes - Sistema de Asistencia{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="text-white fw-bold mb-1">
+            <i class="fas fa-chart-bar me-2"></i>
+            Reportes de Asistencia
+        </h2>
+        <p class="text-white-50 mb-0">Estadísticas y análisis de asistencias</p>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-lg-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <div class="mb-3">
+                    <i class="fas fa-users fa-2x text-primary"></i>
+                </div>
+                <h3 class="fw-bold text-primary">{{ total_profesores }}</h3>
+                <p class="text-muted mb-0">Total Profesores</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <div class="mb-3">
+                    <i class="fas fa-calendar-day fa-2x text-success"></i>
+                </div>
+                <h3 class="fw-bold text-success">{{ asistencias_hoy }}</h3>
+                <p class="text-muted mb-0">Asistencias Hoy</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <div class="mb-3">
+                    <i class="fas fa-clock fa-2x text-warning"></i>
+                </div>
+                <h3 class="fw-bold text-warning" id="porcentajePuntualidad">-%</h3>
+                <p class="text-muted mb-0">Puntualidad (Mes)</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <div class="mb-3">
+                    <i class="fas fa-chart-line fa-2x text-info"></i>
+                </div>
+                <h3 class="fw-bold text-info">{{ asistencias_recientes|length }}</h3>
+                <p class="text-muted mb-0">Registros Totales</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0">
+                    <i class="fas fa-history text-primary me-2"></i>
+                    Registros Recientes de Asistencia
+                </h5>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="filtrarPorEstado('todos')">
+                        Todos
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="filtrarPorEstado('puntual')">
+                        Puntuales
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-warning" onclick="filtrarPorEstado('tarde')">
+                        Tardíos
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-info" onclick="filtrarPorEstado('temprano')">
+                        Tempranos
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if asistencias_recientes %}
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="tablaAsistencias">
+                            <thead>
+                                <tr>
+                                    <th>Profesor</th>
+                                    <th>Materia</th>
+                                    <th>Curso</th>
+                                    <th>Fecha</th>
+                                    <th>Horario</th>
+                                    <th>Estado</th>
+                                    <th>Observaciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for asistencia in asistencias_recientes %}
+                                <tr data-estado="{{ asistencia[6] }}">
+                                    <td>{{ asistencia[0] }} {{ asistencia[1] }}</td>
+                                    <td>{{ asistencia[2] }}</td>
+                                    <td>{{ asistencia[3] }}</td>
+                                    <td>{{ asistencia[5] }}</td>
+                                    <td>{{ asistencia[4] }}</td>
+                                    <td>
+                                        {% if asistencia[6] == 'temprano' %}
+                                            <span class="badge bg-info">
+                                                <i class="fas fa-clock me-1"></i>Temprano
+                                            </span>
+                                        {% elif asistencia[6] == 'puntual' %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check me-1"></i>Puntual
+                                            </span>
+                                        {% elif asistencia[6] == 'tarde' %}
+                                            <span class="badge bg-warning">
+                                                <i class="fas fa-clock me-1"></i>Tarde
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ asistencia[7] or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-chart-bar fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">No hay registros de asistencia</h5>
+                        <p class="text-muted">Los reportes aparecerán aquí cuando se registren asistencias</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="fw-bold mb-0">
+                    <i class="fas fa-chart-pie text-success me-2"></i>
+                    Distribución de Puntualidad
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="chartPuntualidad" width="400" height="300"></canvas>
+                <div class="row text-center mt-3">
+                    <div class="col-4">
+                        <small class="text-info d-block">Tempranos</small>
+                        <strong id="countTempranos">0</strong>
+                    </div>
+                    <div class="col-4">
+                        <small class="text-success d-block">Puntuales</small>
+                        <strong id="countPuntuales">0</strong>
+                    </div>
+                    <div class="col-4">
+                        <small class="text-warning d-block">Tardíos</small>
+                        <strong id="countTardios">0</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="fw-bold mb-0">
+                    <i class="fas fa-filter text-info me-2"></i>
+                    Filtros de Búsqueda
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="filtrosForm">
+                    <div class="mb-3">
+                        <label for="fechaDesde" class="form-label">Desde</label>
+                        <input type="date" class="form-control" id="fechaDesde">
+                    </div>
+                    <div class="mb-3">
+                        <label for="fechaHasta" class="form-label">Hasta</label>
+                        <input type="date" class="form-control" id="fechaHasta">
+                    </div>
+                    <div class="mb-3">
+                        <label for="estadoFiltro" class="form-label">Estado</label>
+                        <select class="form-select" id="estadoFiltro">
+                            <option value="">Todos los estados</option>
+                            <option value="temprano">Tempranos</option>
+                            <option value="puntual">Puntuales</option>
+                            <option value="tarde">Tardíos</option>
+                        </select>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-info">
+                            <i class="fas fa-search me-1"></i>Aplicar Filtros
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="fw-bold mb-0">
+                    <i class="fas fa-download text-warning me-2"></i>
+                    Exportar Datos
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-success" onclick="exportarCSV()">
+                        <i class="fas fa-file-csv me-2"></i>Exportar CSV
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="exportarPDF()">
+                        <i class="fas fa-file-pdf me-2"></i>Exportar PDF
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="imprimirReporte()">
+                        <i class="fas fa-print me-2"></i>Imprimir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+$(document).ready(function() {
+    // Inicializar gráficos
+    inicializarGraficos();
+    
+    // Establecer fechas por defecto (último mes)
+    const hoy = new Date();
+    const hace30dias = new Date(hoy.getTime() - (30 * 24 * 60 * 60 * 1000));
+    
+    $('#fechaHasta').val(hoy.toISOString().split('T')[0]);
+    $('#fechaDesde').val(hace30dias.toISOString().split('T')[0]);
+
+    // Handle filtros form
+    $('#filtrosForm').submit(function(e) {
+        e.preventDefault();
+        aplicarFiltros();
+    });
+});
+
+function inicializarGraficos() {
+    // Contar estados de puntualidad
+    const filas = $('#tablaAsistencias tbody tr');
+    let tempranos = 0, puntuales = 0, tardios = 0;
+    
+    filas.each(function() {
+        const estado = $(this).data('estado');
+        if (estado === 'temprano') tempranos++;
+        else if (estado === 'puntual') puntuales++;
+        else if (estado === 'tarde') tardios++;
+    });
+
+    // Actualizar contadores
+    $('#countTempranos').text(tempranos);
+    $('#countPuntuales').text(puntuales);
+    $('#countTardios').text(tardios);
+
+    // Calcular porcentaje de puntualidad
+    const total = tempranos + puntuales + tardios;
+    const porcentajePuntualidad = total > 0 ? Math.round(((puntuales + tempranos) / total) * 100) : 0;
+    $('#porcentajePuntualidad').text(porcentajePuntualidad + '%');
+
+    // Crear gráfico de dona
+    const ctx = document.getElementById('chartPuntualidad').getContext('2d');
+    
+    if (window.chartPuntualidad) {
+        window.chartPuntualidad.destroy();
+    }
+    
+    window.chartPuntualidad = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Tempranos', 'Puntuales', 'Tardíos'],
+            datasets: [{
+                data: [tempranos, puntuales, tardios],
+                backgroundColor: [
+                    'rgba(13, 202, 240, 0.8)',   // info
+                    'rgba(25, 135, 84, 0.8)',    // success
+                    'rgba(255, 193, 7, 0.8)'     // warning
+                ],
+                borderColor: [
+                    'rgba(13, 202, 240, 1)',
+                    'rgba(25, 135, 84, 1)',
+                    'rgba(255, 193, 7, 1)'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 15,
+                        usePointStyle: true
+                    }
+                }
+            }
+        }
+    });
+}
+
+function filtrarPorEstado(estado) {
+    const filas = $('#tablaAsistencias tbody tr');
+    
+    if (estado === 'todos') {
+        filas.show();
+    } else {
+        filas.hide();
+        filas.filter(`[data-estado="${estado}"]`).show();
+    }
+    
+    // Actualizar botones activos
+    $('.btn-group button').removeClass('active');
+    event.target.classList.add('active');
+}
+
+function aplicarFiltros() {
+    // Esta función se puede extender para filtrar por fechas
+    const estado = $('#estadoFiltro').val();
+    filtrarPorEstado(estado || 'todos');
+}
+
+function exportarCSV() {
+    let csv = 'Profesor,Materia,Curso,Fecha,Horario,Estado,Observaciones\n';
+    
+    $('#tablaAsistencias tbody tr:visible').each(function() {
+        const celdas = $(this).find('td');
+        const fila = Array.from(celdas).map(celda => {
+            let texto = $(celda).text().trim();
+            // Limpiar badges
+            texto = texto.replace(/^\w+\s*/, '');
+            return `"${texto}"`;
+        }).join(',');
+        csv += fila + '\n';
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'reporte_asistencias.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+function exportarPDF() {
+    window.print();
+}
+
+function imprimirReporte() {
+    window.print();
+}
+</script>
+
+<style>
+@media print {
+    .btn, .card-header .btn-group, .sidebar {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #000 !important;
+        box-shadow: none !important;
+    }
+    
+    body {
+        background: white !important;
+    }
+}
+</style>
+{% endblock %}
