@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+
+{% block title %}Gestionar Profesores - Sistema de Asistencia{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="text-white fw-bold mb-1">
+            <i class="fas fa-users me-2"></i>
+            Gestionar Profesores
+        </h2>
+        <p class="text-white-50 mb-0">Administración de profesores y asignaciones</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0">
+                    <i class="fas fa-list text-primary me-2"></i>
+                    Lista de Profesores
+                </h5>
+                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalCrearProfesor">
+                    <i class="fas fa-plus me-1"></i>Nuevo Profesor
+                </button>
+            </div>
+            <div class="card-body">
+                {% if profesores %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Email</th>
+                                    <th>Teléfono</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for profesor in profesores %}
+                                <tr>
+                                    <td>{{ profesor[1] }} {{ profesor[2] }}</td>
+                                    <td>{{ profesor[3] }}</td>
+                                    <td>{{ profesor[5] or '-' }}</td>
+                                    <td>
+                                        {% if profesor[6] %}
+                                            <span class="badge bg-success">Activo</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inactivo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-info" onclick="verAsignaciones({{ profesor[0] }}, '{{ profesor[1] }} {{ profesor[2] }}')">
+                                            <i class="fas fa-eye me-1"></i>Asignaciones
+                                        </button>
+                                        <button class="btn btn-sm btn-warning" onclick="editarProfesor({{ profesor[0] }})">
+                                            <i class="fas fa-edit me-1"></i>Editar
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-users-slash fa-3x text-muted mb-3"></i>
+                        <h6 class="text-muted">No hay profesores registrados</h6>
+                        <p class="text-muted small">Comienza agregando el primer profesor</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="fw-bold mb-0">
+                    <i class="fas fa-book text-success me-2"></i>
+                    Asignar Materia
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="asignacionForm">
+                    <div class="mb-3">
+                        <label for="profesorSelect" class="form-label">Profesor</label>
+                        <select class="form-select" id="profesorSelect" required>
+                            <option value="">Seleccionar profesor</option>
+                            {% for profesor in profesores %}
+                                <option value="{{ profesor[0] }}">{{ profesor[1] }} {{ profesor[2] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="materiaSelect" class="form-label">Materia</label>
+                        <select class="form-select" id="materiaSelect" required>
+                            <option value="">Seleccionar materia</option>
+                            {% for materia in materias %}
+                                <option value="{{ materia[0] }}">{{ materia[1] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="cursoSelect" class="form-label">Curso</label>
+                        <select class="form-select" id="cursoSelect" required>
+                            <option value="">Seleccionar curso</option>
+                            {% for curso in cursos %}
+                                <option value="{{ curso[0] }}">{{ curso[1] }}° {{ curso[2] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="fas fa-link me-1"></i>Asignar Materia
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="fw-bold mb-0">
+                    <i class="fas fa-info-circle text-info me-2"></i>
+                    Estadísticas
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h4 class="text-primary">{{ profesores|length }}</h4>
+                        <small class="text-muted">Profesores</small>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-success">{{ materias|length }}</h4>
+                        <small class="text-muted">Materias</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crear Profesor -->
+<div class="modal fade" id="modalCrearProfesor" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-plus text-success me-2"></i>
+                    Crear Nuevo Profesor
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="crearProfesorForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="nombre" class="form-label">Nombre *</label>
+                            <input type="text" class="form-control" id="nombre" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="apellido" class="form-label">Apellido *</label>
+                            <input type="text" class="form-control" id="apellido" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email *</label>
+                        <input type="email" class="form-control" id="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="telefono" class="form-label">Teléfono</label>
+                        <input type="tel" class="form-control" id="telefono">
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Contraseña Temporal</label>
+                        <input type="password" class="form-control" id="password" value="profesor123">
+                        <div class="form-text">El profesor podrá cambiar esta contraseña después</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="crearProfesor()">
+                    <i class="fas fa-save me-1"></i>Crear Profesor
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Asignaciones -->
+<div class="modal fade" id="modalAsignaciones" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloAsignaciones">
+                    <i class="fas fa-book text-info me-2"></i>
+                    Asignaciones del Profesor
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="contenidoAsignaciones">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="message" class="mt-3"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Handle asignacion form
+    $('#asignacionForm').submit(function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            profesor_id: parseInt($('#profesorSelect').val()),
+            materia_id: parseInt($('#materiaSelect').val()),
+            curso_id: parseInt($('#cursoSelect').val())
+        };
+
+        $.ajax({
+            url: '/api/asignar_materia',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                if (response.success) {
+                    mostrarMensaje('success', response.message);
+                    $('#asignacionForm')[0].reset();
+                }
+            },
+            error: function(xhr) {
+                const response = JSON.parse(xhr.responseText);
+                mostrarMensaje('danger', response.message);
+            }
+        });
+    });
+});
+
+function crearProfesor() {
+    const formData = {
+        nombre: $('#nombre').val(),
+        apellido: $('#apellido').val(),
+        email: $('#email').val(),
+        telefono: $('#telefono').val(),
+        password: $('#password').val()
+    };
+
+    $.ajax({
+        url: '/api/crear_profesor',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(formData),
+        success: function(response) {
+            if (response.success) {
+                mostrarMensaje('success', response.message);
+                $('#modalCrearProfesor').modal('hide');
+                $('#crearProfesorForm')[0].reset();
+                
+                // Recargar página después de 2 segundos
+                setTimeout(function() {
+                    location.reload();
+                }, 2000);
+            }
+        },
+        error: function(xhr) {
+            const response = JSON.parse(xhr.responseText);
+            mostrarMensaje('danger', response.message);
+        }
+    });
+}
+
+function verAsignaciones(profesorId, nombreProfesor) {
+    $('#tituloAsignaciones').html(`
+        <i class="fas fa-book text-info me-2"></i>
+        Asignaciones de ${nombreProfesor}
+    `);
+    
+    $('#modalAsignaciones').modal('show');
+    
+    $.ajax({
+        url: `/api/profesor_asignaciones/${profesorId}`,
+        type: 'GET',
+        success: function(asignaciones) {
+            let html = '';
+            if (asignaciones.length > 0) {
+                html = '<div class="table-responsive"><table class="table"><thead><tr><th>Materia</th><th>Curso</th></tr></thead><tbody>';
+                asignaciones.forEach(function(asig) {
+                    html += `<tr><td>${asig.materia}</td><td>${asig.curso}</td></tr>`;
+                });
+                html += '</tbody></table></div>';
+            } else {
+                html = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-book-open fa-3x text-muted mb-3"></i>
+                        <h6 class="text-muted">Sin asignaciones</h6>
+                        <p class="text-muted small">Este profesor no tiene materias asignadas</p>
+                    </div>
+                `;
+            }
+            $('#contenidoAsignaciones').html(html);
+        },
+        error: function() {
+            $('#contenidoAsignaciones').html(`
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error al cargar las asignaciones
+                </div>
+            `);
+        }
+    });
+}
+
+function editarProfesor(profesorId) {
+    // Esta función se puede implementar para editar profesores
+    mostrarMensaje('info', 'Función de edición en desarrollo');
+}
+
+function mostrarMensaje(tipo, mensaje) {
+    $('#message').html(`
+        <div class="alert alert-${tipo} alert-dismissible fade show">
+            <i class="fas fa-${tipo === 'success' ? 'check-circle' : tipo === 'danger' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+            ${mensaje}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `);
+}
+</script>
+{% endblock %}
