@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrar Asistencia - Gestión de Asistencia</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-chalkboard-teacher"></i>
+                <span>Gestión de Asistencia</span>
+            </div>
+            <div class="nav-menu">
+                <a href="{{ url_for('dashboard') }}" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    Dashboard
+                </a>
+                <a href="{{ url_for('registrar_asistencia') }}" class="nav-link active">
+                    <i class="fas fa-clock"></i>
+                    Registrar Asistencia
+                </a>
+                <a href="{{ url_for('reportes') }}" class="nav-link">
+                    <i class="fas fa-chart-bar"></i>
+                    Reportes
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-link">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Cerrar Sesión
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h1><i class="fas fa-clock"></i> Registrar Asistencia</h1>
+            <p>Registra tu asistencia para las clases de hoy</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="form-container">
+            <form method="POST" class="asistencia-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="materia">
+                            <i class="fas fa-book"></i>
+                            Materia
+                        </label>
+                        <select id="materia" name="materia" required>
+                            <option value="">Selecciona una materia</option>
+                            {% for materia in materias %}
+                                <option value="{{ materia[0] }}">{{ materia[1] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="curso">
+                            <i class="fas fa-users"></i>
+                            Curso
+                        </label>
+                        <select id="curso" name="curso" required>
+                            <option value="">Selecciona un curso</option>
+                            {% for curso in cursos %}
+                                <option value="{{ curso[0] }}">{{ curso[1] }}° {{ curso[2] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="hora_clase">
+                            <i class="fas fa-calendar-alt"></i>
+                            Hora de la Clase
+                        </label>
+                        <input type="time" id="hora_clase" name="hora_clase" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="hora_llegada">
+                            <i class="fas fa-clock"></i>
+                            Hora de Llegada
+                        </label>
+                        <input type="time" id="hora_llegada" name="hora_llegada" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="observaciones">
+                        <i class="fas fa-comment"></i>
+                        Observaciones (opcional)
+                    </label>
+                    <textarea id="observaciones" name="observaciones" rows="3" placeholder="Observaciones adicionales..."></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Registrar Asistencia
+                    </button>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i>
+                        Volver al Dashboard
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Establecer hora actual por defecto
+        document.addEventListener('DOMContentLoaded', function() {
+            const now = new Date();
+            const timeString = now.toTimeString().slice(0, 5);
+            document.getElementById('hora_llegada').value = timeString;
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Gestión de Asistencia</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-chalkboard-teacher"></i>
+                <span>Gestión de Asistencia</span>
+            </div>
+            <div class="nav-menu">
+                <a href="{{ url_for('dashboard') }}" class="nav-link active">
+                    <i class="fas fa-home"></i>
+                    Dashboard
+                </a>
+                <a href="{{ url_for('registrar_asistencia') }}" class="nav-link">
+                    <i class="fas fa-clock"></i>
+                    Registrar Asistencia
+                </a>
+                <a href="{{ url_for('reportes') }}" class="nav-link">
+                    <i class="fas fa-chart-bar"></i>
+                    Reportes
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-link">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Cerrar Sesión
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="dashboard-header">
+            <h1>Bienvenido, {{ profesor_nombre }}</h1>
+            <p>Panel de control de asistencia</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="dashboard-grid">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-book"></i>
+                    <h3>Mis Materias</h3>
+                </div>
+                <div class="card-body">
+                    {% if materias %}
+                        <ul class="materias-list">
+                            {% for materia in materias %}
+                                <li><i class="fas fa-check"></i> {{ materia }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="no-data">No tienes materias asignadas</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-calendar-day"></i>
+                    <h3>Asistencia de Hoy</h3>
+                </div>
+                <div class="card-body">
+                    {% if asistencia_hoy %}
+                        <div class="asistencia-list">
+                            {% for asistencia in asistencia_hoy %}
+                                <div class="asistencia-item">
+                                    <div class="asistencia-info">
+                                        <strong>{{ asistencia[4] }}</strong> - {{ asistencia[5] }}
+                                    </div>
+                                    <div class="asistencia-hora">
+                                        {{ asistencia[1] }} - {{ asistencia[2] }}
+                                    </div>
+                                    <div class="asistencia-estado estado-{{ asistencia[3] }}">
+                                        {% if asistencia[3] == 'temprano' %}
+                                            <i class="fas fa-check-circle"></i> Temprano
+                                        {% elif asistencia[3] == 'tarde' %}
+                                            <i class="fas fa-clock"></i> Tarde
+                                        {% else %}
+                                            <i class="fas fa-times-circle"></i> Ausente
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="no-data">No hay registros de asistencia para hoy</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-plus-circle"></i>
+                    <h3>Acciones Rápidas</h3>
+                </div>
+                <div class="card-body">
+                    <div class="quick-actions">
+                        <a href="{{ url_for('registrar_asistencia') }}" class="btn btn-primary">
+                            <i class="fas fa-clock"></i>
+                            Registrar Asistencia
+                        </a>
+                        <a href="{{ url_for('reportes') }}" class="btn btn-secondary">
+                            <i class="fas fa-chart-bar"></i>
+                            Ver Reportes
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 
