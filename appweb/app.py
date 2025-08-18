@@ -15,99 +15,12 @@ app.config['SECRET_KEY'] = 'tu_clave_secreta_aqui'
 
 mysql = MySQL(app)
 
-# Crear las tablas si no existen
-def crear_tablas():
-    cur = mysql.connection.cursor()
-    
-    # Tabla de profesores
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS profesores (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            nombre VARCHAR(100) NOT NULL,
-            apellido VARCHAR(100) NOT NULL,
-            email VARCHAR(100) UNIQUE NOT NULL,
-            password VARCHAR(255) NOT NULL,
-            fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Tabla de materias
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS materias (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            nombre VARCHAR(100) NOT NULL,
-            descripcion TEXT
-        )
-    ''')
-    
-    # Tabla de cursos
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS cursos (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            año INT NOT NULL,
-            division VARCHAR(10) DEFAULT 'A'
-        )
-    ''')
-    
-    # Tabla de relación profesor-materia
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS profesor_materia (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            profesor_id INT,
-            materia_id INT,
-            FOREIGN KEY (profesor_id) REFERENCES profesores(id),
-            FOREIGN KEY (materia_id) REFERENCES materias(id)
-        )
-    ''')
-    
-    # Tabla de asistencia
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS asistencia (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            profesor_id INT,
-            materia_id INT,
-            curso_id INT,
-            fecha DATE NOT NULL,
-            hora_llegada TIME NOT NULL,
-            hora_clase TIME NOT NULL,
-            estado ENUM('temprano', 'tarde', 'ausente') NOT NULL,
-            observaciones TEXT,
-            FOREIGN KEY (profesor_id) REFERENCES profesores(id),
-            FOREIGN KEY (materia_id) REFERENCES materias(id),
-            FOREIGN KEY (curso_id) REFERENCES cursos(id)
-        )
-    ''')
-    
-    # Insertar datos básicos si no existen
-    cur.execute("SELECT COUNT(*) FROM materias")
-    if cur.fetchone()[0] == 0:
-        materias = [
-            ('Matemáticas', 'Matemáticas generales'),
-            ('Lengua', 'Lengua y Literatura'),
-            ('Historia', 'Historia Argentina y Mundial'),
-            ('Geografía', 'Geografía Argentina y Mundial'),
-            ('Ciencias Naturales', 'Biología, Física y Química'),
-            ('Educación Física', 'Deportes y actividad física'),
-            ('Inglés', 'Idioma extranjero'),
-            ('Arte', 'Plástica y Música'),
-            ('Tecnología', 'Informática y tecnología')
-        ]
-        cur.executemany("INSERT INTO materias (nombre, descripcion) VALUES (%s, %s)", materias)
-    
-    cur.execute("SELECT COUNT(*) FROM cursos")
-    if cur.fetchone()[0] == 0:
-        cursos = [(i, 'A') for i in range(1, 7)]  # 1ro a 6to año
-        cur.executemany("INSERT INTO cursos (año, division) VALUES (%s, %s)", cursos)
-    
-    mysql.connection.commit()
-    cur.close()
-
 # Rutas principales
 @app.route('/')
 def index():
-    if 'profesor_id' not in session:
-        return redirect(url_for('login'))
-    return redirect(url_for('dashboard'))
+    if 'profesor_id' in session:
+        return redirect(url_for('dashboard'))
+    return render_template('index.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -338,6 +251,4 @@ def asignar_materias():
                          materias=materias)
 
 if __name__ == '__main__':
-    with app.app_context():
-        crear_tablas()
-    app.run(debug=True) 
+    app.run(debug=True)

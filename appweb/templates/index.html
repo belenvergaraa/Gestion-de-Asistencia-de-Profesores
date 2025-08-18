@@ -1,11 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Control de Asistencia Docente</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    
+  <div class="hero">
+    <div class="hero-card">
+      <div class="login-header">
+        <h1>CONTROL DE ASISTENCIA DOCENTE</h1>
+        <p>2025</p>
+      </div>
+      <div class="hero-actions">
+        <a class="btn btn-large btn-primary" href="{{ url_for('registro') }}">
+          <i class="fas fa-user-plus"></i>
+          REGISTRARSE
+        </a>
+        <a class="btn btn-large btn-secondary" href="{{ url_for('login') }}">
+          <i class="fas fa-sign-in-alt"></i>
+          INICIAR SESIÓN
+        </a>
+      </div>
+    </div>
+  </div>
 </body>
 </html>     
