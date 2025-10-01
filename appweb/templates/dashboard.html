@@ -1,128 +1,364 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Gestión de Asistencia</title>
+    <title>Gestión de Asistencia</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Forzar etiquetas visibles en negro en el dashboard */
+        .form-section .form-group label,
+        .schedule-section .form-group label { color:#000; }
+    </style>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="nav-brand">
-                <i class="fas fa-chalkboard-teacher"></i>
-                <span>Gestión de Asistencia</span>
-            </div>
-            <div class="nav-menu">
-                <a href="{{ url_for('dashboard') }}" class="nav-link active">
-                    <i class="fas fa-home"></i>
-                    Dashboard
-                </a>
-                <a href="{{ url_for('registrar_asistencia') }}" class="nav-link">
-                    <i class="fas fa-clock"></i>
-                    Registrar Asistencia
-                </a>
-                <a href="{{ url_for('reportes') }}" class="nav-link">
-                    <i class="fas fa-chart-bar"></i>
-                    Reportes
-                </a>
-                <a href="{{ url_for('logout') }}" class="nav-link">
-                    <i class="fas fa-sign-out-alt"></i>
-                    Cerrar Sesión
-                </a>
-            </div>
+    <!-- Header con menú hamburguesa y usuario -->
+    <div class="header-bar">
+        <div class="header-left">
+            <button class="menu-btn" onclick="toggleMenu()">
+                <i class="fas fa-bars"></i>
+            </button>
         </div>
-    </nav>
-
-    <div class="container">
-        <div class="dashboard-header">
-            <h1>Bienvenido, {{ profesor_nombre }}</h1>
-            <p>Panel de control de asistencia</p>
-        </div>
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <div class="dashboard-grid">
-            <div class="card">
-                <div class="card-header">
-                    <i class="fas fa-book"></i>
-                    <h3>Mis Materias</h3>
-                </div>
-                <div class="card-body">
-                    {% if materias %}
-                        <ul class="materias-list">
-                            {% for materia in materias %}
-                                <li><i class="fas fa-check"></i> {{ materia }}</li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="no-data">No tienes materias asignadas</p>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <i class="fas fa-calendar-day"></i>
-                    <h3>Asistencia de Hoy</h3>
-                </div>
-                <div class="card-body">
-                    {% if asistencia_hoy %}
-                        <div class="asistencia-list">
-                            {% for asistencia in asistencia_hoy %}
-                                <div class="asistencia-item">
-                                    <div class="asistencia-info">
-                                        <strong>{{ asistencia[4] }}</strong> - {{ asistencia[5] }}
-                                    </div>
-                                    <div class="asistencia-hora">
-                                        {{ asistencia[1] }} - {{ asistencia[2] }}
-                                    </div>
-                                    <div class="asistencia-estado estado-{{ asistencia[3] }}">
-                                        {% if asistencia[3] == 'temprano' %}
-                                            <i class="fas fa-check-circle"></i> Temprano
-                                        {% elif asistencia[3] == 'tarde' %}
-                                            <i class="fas fa-clock"></i> Tarde
-                                        {% else %}
-                                            <i class="fas fa-times-circle"></i> Ausente
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <p class="no-data">No hay registros de asistencia para hoy</p>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <i class="fas fa-plus-circle"></i>
-                    <h3>Acciones Rápidas</h3>
-                </div>
-                <div class="card-body">
-                    <div class="quick-actions">
-                        <a href="{{ url_for('registrar_asistencia') }}" class="btn btn-primary">
-                            <i class="fas fa-clock"></i>
-                            Registrar Asistencia
-                        </a>
-                        <a href="{{ url_for('reportes') }}" class="btn btn-secondary">
-                            <i class="fas fa-chart-bar"></i>
-                            Ver Reportes
-                        </a>
-                    </div>
-                </div>
+        <div class="header-right">
+            <div class="user-info">
+                <i class="fas fa-user"></i>
+                <span>Profesor</span>
             </div>
         </div>
     </div>
+
+    <!-- Panel principal -->
+    <div class="main-container">
+        <div class="attendance-card">
+            <h1 class="card-title">Gestión de Asistencia</h1>
+            
+            <!-- Formulario de datos del profesor -->
+            <div class="form-section">
+                <div class="form-group">
+                    <label for="nombre">Nombre</label>
+                    <input type="text" id="nombre" name="nombre" value="{{ profesor_nombre }}" readonly>
+                </div>
+                
+                <div class="form-group">
+                    <label for="materia_input">Materia</label>
+                    <input type="text" id="materia_input" list="materias_list" placeholder="Escribe la materia que diste hoy">
+                    <datalist id="materias_list">
+                        {% for m in materias %}
+                            <option value="{{ m.materia }}"></option>
+                        {% endfor %}
+                    </datalist>
+                    <input type="hidden" id="materia" name="materia">
+                </div>
+            </div>
+
+            <!-- Gestión de horarios del profesor -->
+            <div class="schedule-section">
+                <h3>Agregar horario</h3>
+                <form id="form-agregar-horario" method="POST" action="{{ url_for('agregar_horario') }}" class="form-inline">
+                    <div class="form-group">
+                        <label for="materia_id">Materia</label>
+                        <select id="materia_id" name="materia_id" required>
+                            <option value="">Selecciona una materia</option>
+                            {% for m in materias %}
+                                <option value="{{ m.id_materia }}">{{ m.materia }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="curso_id">Curso</label>
+                        <select id="curso_id" name="curso_id">
+                            <option value="">(Opcional)</option>
+                            {% for c in cursos %}
+                                {% set anio_nombre = {
+                                    1: 'primer año',
+                                    2: 'segundo año',
+                                    3: 'tercer año',
+                                    4: 'cuarto año',
+                                    5: 'quinto año',
+                                    6: 'sexto año'
+                                }[c['año']] if c['año'] in [1,2,3,4,5,6] else (c['año'] ~ '°') %}
+                                <option value="{{ c.id }}">{{ c['año'] }}° {{ c.division }} ({{ anio_nombre }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="dia_input">Día</label>
+                        <input type="text" id="dia_input" list="dias_list" placeholder="Selecciona día o escribe fecha ej: 29/09/25" required>
+                        <datalist id="dias_list">
+                            <option value="Lunes"></option>
+                            <option value="Martes"></option>
+                            <option value="Miércoles"></option>
+                            <option value="Jueves"></option>
+                            <option value="Viernes"></option>
+                            <option value="Sábado"></option>
+                            <option value="Domingo"></option>
+                        </datalist>
+                        <input type="hidden" id="dia_semana" name="dia_semana" />
+                    </div>
+                    <div class="form-group">
+                        <label for="hora_clase">Hora</label>
+                        <input type="time" id="hora_clase" name="hora_clase" required>
+                    </div>
+                    <button type="submit" class="btn-save"><i class="fas fa-plus"></i> Agregar</button>
+                </form>
+            </div>
+
+            <div class="schedule-section">
+                <h3>Mis horarios</h3>
+                {% set dias = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'] %}
+                <div class="table-container">
+                    <table class="schedule-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Materia</th>
+                                <th>Curso</th>
+                                <th>Día</th>
+                                <th>Hora</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if horarios and horarios|length > 0 %}
+                                {% for h in horarios %}
+                                    <tr>
+                                        <td>{{ loop.index }}</td>
+                                        <td>{{ h.nombre_materia }}</td>
+                                        <td>{{ h.nombre_curso or '-' }}</td>
+                                        <td>{{ dias[h.dia_semana] if 0 <= h.dia_semana <= 6 else h.dia_semana }}</td>
+                                        <td>{{ h.hora_clase }}</td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="5" style="text-align:center;">Aún no cargaste horarios.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tabla de horario de clases -->
+            <div class="schedule-section">
+                <h3>Horario de clases</h3>
+                <div class="table-container">
+                    <table class="schedule-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Materia</th>
+                                <th>Curso</th>
+                                <th>Fecha</th>
+                                <th>Hora clase</th>
+                                <th>Hora llegada</th>
+                                <th>Estado</th>
+                                <th>Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if asistencia_hoy %}
+                                {% for asistencia in asistencia_hoy %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td>{{ asistencia.materia or '-' }}</td>
+                                    <td>{{ asistencia.curso or '-' }}</td>
+                                    <td>{{ (asistencia.fecha or hoy).strftime('%Y-%m-%d') if asistencia.fecha else hoy.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        <input type="time" name="hora_clase_{{ asistencia.id_asistencia }}" value="{{ asistencia.hora_clase or '' }}" placeholder="HH:MM">
+                                    </td>
+                                    <td>{{ asistencia.hora_entrada or '' }}</td>
+                                    <td>
+                                        <select name="estado_{{ asistencia.id_asistencia }}">
+                                            <option value="">Seleccionar</option>
+                                            <option value="temprano" {% if asistencia.estado == 'temprano' %}selected{% endif %}>Temprano</option>
+                                            <option value="tarde" {% if asistencia.estado == 'tarde' %}selected{% endif %}>Tarde</option>
+                                            <option value="ausente" {% if asistencia.estado == 'ausente' %}selected{% endif %}>Ausente</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" name="motivo_{{ asistencia.id_asistencia }}" value="{{ asistencia.observaciones or '' }}" placeholder="Motivo">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="8" style="text-align:center;">No hay asistencias registradas hoy.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Botón guardar -->
+            <div class="save-section">
+                <button type="button" class="btn-save" onclick="guardarAsistencia()">
+                    <i class="fas fa-save"></i>
+                    Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Menú lateral (oculto por defecto) -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-content">
+            <a href="{{ url_for('dashboard') }}" class="sidebar-link active">
+                <i class="fas fa-home"></i>
+                Dashboard
+            </a>
+            <a href="{{ url_for('registrar_asistencia') }}" class="sidebar-link">
+                <i class="fas fa-clock"></i>
+                Registrar Asistencia
+            </a>
+            <a href="{{ url_for('reportes') }}" class="sidebar-link">
+                <i class="fas fa-chart-bar"></i>
+                Reportes
+            </a>
+            <a href="{{ url_for('logout') }}" class="sidebar-link">
+                <i class="fas fa-sign-out-alt"></i>
+                Cerrar Sesión
+            </a>
+        </div>
+    </div>
+
+    <!-- Overlay para cerrar menú -->
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+
+    <script>
+        // Mapa nombre -> id de materias para convertir lo escrito en ID
+        const MATERIAS_MAP = {
+            {% for m in materias %}
+            "{{ m.materia|replace('"','\\"') }}": {{ m.id_materia }}{% if not loop.last %},{% endif %}
+            {% endfor %}
+        };
+
+        function toggleMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        function guardarAsistencia() {
+            // Recopilar datos del formulario
+            const materiaInput = document.getElementById('materia_input');
+            const materiaHidden = document.getElementById('materia');
+
+            const nombreMateria = (materiaInput?.value || '').trim();
+            const materiaId = MATERIAS_MAP[nombreMateria];
+
+            if (!nombreMateria || materiaId === undefined) {
+                alert('Por favor escribe o selecciona una materia válida de la lista');
+                return;
+            }
+
+            // setear el ID para el backend
+            materiaHidden.value = String(materiaId);
+
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ url_for("guardar_asistencia") }}';
+
+            const materiaField = document.createElement('input');
+            materiaField.type = 'hidden';
+            materiaField.name = 'materia';
+            materiaField.value = materiaHidden.value;
+            form.appendChild(materiaField);
+
+            const estadoField = document.createElement('input');
+            estadoField.type = 'hidden';
+            estadoField.name = 'estado';
+            estadoField.value = 'temprano';
+            form.appendChild(estadoField);
+
+            const motivoField = document.createElement('input');
+            motivoField.type = 'hidden';
+            motivoField.name = 'motivo';
+            motivoField.value = '';
+            form.appendChild(motivoField);
+
+            const horaField = document.createElement('input');
+            horaField.type = 'hidden';
+            horaField.name = 'hora_entrada';
+            horaField.value = '08:30';
+            form.appendChild(horaField);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        // Cerrar menú al hacer clic fuera
+        document.addEventListener('click', function(event) {
+            const sidebar = document.getElementById('sidebar');
+            const menuBtn = document.querySelector('.menu-btn');
+            
+            if (!sidebar.contains(event.target) && !menuBtn.contains(event.target)) {
+                sidebar.classList.remove('active');
+                document.getElementById('overlay').classList.remove('active');
+            }
+        });
+
+        // Lógica para campo Día: permitir día por nombre o fecha (dd/mm/aa)
+        (function() {
+            const form = document.getElementById('form-agregar-horario');
+            if (!form) return;
+
+            const inputDia = document.getElementById('dia_input');
+            const hiddenDia = document.getElementById('dia_semana');
+
+            const diasMap = {
+                'lunes': 0,
+                'martes': 1,
+                'miercoles': 2,
+                'miércoles': 2,
+                'jueves': 3,
+                'viernes': 4,
+                'sabado': 5,
+                'sábado': 5,
+                'domingo': 6
+            };
+
+            function parseFechaToWeekday(value) {
+                // Formatos esperados: dd/mm/aa o dd/mm/aaaa
+                const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+                if (!match) return null;
+                let d = parseInt(match[1], 10);
+                let m = parseInt(match[2], 10) - 1; // 0-based
+                let y = parseInt(match[3], 10);
+                if (y < 100) {
+                    // Asumimos 20xx para 00-79 y 19xx para 80-99, o simplemente 2000+yy
+                    y = 2000 + y;
+                }
+                const fecha = new Date(y, m, d);
+                if (isNaN(fecha.getTime())) return null;
+                // JS getDay(): 0=Domingo..6=Sábado; queremos 0=Lunes..6=Domingo
+                const jsDay = fecha.getDay();
+                const map = { 0: 6, 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5 };
+                return map[jsDay];
+            }
+
+            form.addEventListener('submit', function(e) {
+                const raw = (inputDia.value || '').trim().toLowerCase();
+                let diaIdx = null;
+
+                if (raw in diasMap) {
+                    diaIdx = diasMap[raw];
+                } else {
+                    diaIdx = parseFechaToWeekday(raw);
+                }
+
+                if (diaIdx === null || diaIdx === undefined || isNaN(diaIdx)) {
+                    e.preventDefault();
+                    alert('Ingresa un día válido o una fecha en formato dd/mm/aa');
+                    return false;
+                }
+
+                hiddenDia.value = String(diaIdx);
+            });
+        })();
+    </script>
 </body>
-</html> 
+</html>
