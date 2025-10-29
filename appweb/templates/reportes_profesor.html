@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reportes - Gestión de Asistencia</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-chalkboard-teacher"></i>
+                <span>Gestión de Asistencia</span>
+            </div>
+            <div class="nav-menu">
+                <a href="{{ url_for('dashboard') }}" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    Dashboard
+                </a>
+                <a href="{{ url_for('registrar_asistencia') }}" class="nav-link">
+                    <i class="fas fa-clock"></i>
+                    Registrar Asistencia
+                </a>
+                <a href="{{ url_for('reportes') }}" class="nav-link">
+                    <i class="fas fa-chart-bar"></i>
+                    Mis Reportes
+                </a>
+                <a href="{{ url_for('reportes_profesor') }}" class="nav-link active">
+                    <i class="fas fa-file-alt"></i>
+                    Reportes por Profesor
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-link">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Cerrar Sesión
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h1><i class="fas fa-file-alt"></i> Reportes de Asistencia por Profesor</h1>
+            <p>Consulta las asistencias de cualquier profesor</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Filtros -->
+        <div class="filters-section">
+            <form method="GET" class="filter-form">
+                <div class="filter-group">
+                    <label for="profesor_id">
+                        <i class="fas fa-user"></i> Profesor
+                    </label>
+                    <select name="profesor_id" id="profesor_id" required>
+                        <option value="">Seleccione un profesor</option>
+                        {% for p in profesores %}
+                            <option value="{{ p.id_profesor }}" 
+                                    {% if p.id_profesor|string == profesor_id %}selected{% endif %}>
+                                {{ p.apellido }}, {{ p.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="materia_id">
+                        <i class="fas fa-book"></i> Materia
+                    </label>
+                    <select name="materia_id" id="materia_id">
+                        <option value="">Todas las materias</option>
+                        {% for m in materias %}
+                            <option value="{{ m.id_materia }}" 
+                                    {% if m.id_materia|string == materia_id %}selected{% endif %}>
+                                {{ m.materia }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i> Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Información del profesor seleccionado -->
+        {% if profesor_seleccionado %}
+        <div class="profesor-info">
+            <h3>
+                <i class="fas fa-user-circle"></i> 
+                {{ profesor_seleccionado.nombre }} {{ profesor_seleccionado.apellido }}
+            </h3>
+            <p><strong>DNI:</strong> {{ profesor_seleccionado.dni }}</p>
+            {% if profesor_seleccionado.materia %}
+            <p><strong>Materia principal:</strong> {{ profesor_seleccionado.materia }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Tabla de asistencias -->
+        {% if asistencias %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Fecha</th>
+                        <th>Materia</th>
+                        <th>Curso</th>
+                        <th>Hora Clase</th>
+                        <th>Hora Entrada</th>
+                        <th>Estado</th>
+                        <th>Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in asistencias %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ a.fecha.strftime('%d/%m/%Y') if a.fecha else '-' }}</td>
+                        <td>{{ a.materia or '-' }}</td>
+                        <td>{{ a.curso or '-' }}</td>
+                        <td>{{ a.hora_clase or '-' }}</td>
+                        <td>{{ a.hora_entrada or '-' }}</td>
+                        <td>
+                            {% if a.estado %}
+                            <span class="badge badge-{{ a.estado }}">
+                                {{ a.estado|capitalize }}
+                            </span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ a.observaciones or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top: 15px; text-align: right; color: #666;">
+            <strong>Total de registros:</strong> {{ asistencias|length }}
+        </div>
+        {% elif profesor_id %}
+        <div class="no-data">
+            <i class="fas fa-inbox" style="font-size: 48px; color: #ddd; margin-bottom: 15px;"></i>
+            <p>No hay registros de asistencia para los filtros seleccionados</p>
+        </div>
+        {% else %}
+        <div class="no-data">
+            <i class="fas fa-filter" style="font-size: 48px; color: #ddd; margin-bottom: 15px;"></i>
+            <p>Selecciona un profesor para ver sus registros de asistencia</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // Auto-submit cuando cambia el profesor
+        document.getElementById('profesor_id').addEventListener('change', function() {
+            if (this.value) {
+                this.form.submit();
+            }
+        });
+    </script>
+
+    </body>
+</html> 

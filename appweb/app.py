@@ -243,6 +243,70 @@ def reportes():
                          asistencia_materias=asistencia_materias)
 
 
+@app.route('/informe-horarios')
+def informe_horarios():
+    if 'profesor_id' not in session:
+        return redirect(url_for('login'))
+
+    cur = mysql.connection.cursor(DictCursor)
+
+    # Unificar horarios guardados y asistencias del día a registros "tipo informe"
+    # 1) Traer asistencias registradas (últimos 30 días)
+    cur.execute(
+        """
+        SELECT 
+            DATE_FORMAT(a.fecha, '%%Y-%%m-%%d') as fecha,
+            a.hora_clase,
+            a.hora_entrada,
+            a.estado,
+            a.observaciones,
+            m.materia as materia,
+            CONCAT(c.`año`, '° ', c.division) as curso
+        FROM asistencia a
+        LEFT JOIN materias m ON a.materia_id = m.id_materia
+        LEFT JOIN cursos c ON a.curso_id = c.id
+        WHERE a.id_profesor = %s AND a.fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+        ORDER BY a.fecha DESC, a.hora_entrada DESC
+        """,
+        (session['profesor_id'],)
+    )
+    asistencias = cur.fetchall()
+
+    # 2) Traer horarios del profesor (para informar la planificación)
+    cur.execute(
+        """
+        SELECT 
+            NULL as fecha,
+            h.hora_clase,
+            NULL as hora_entrada,
+            NULL as estado,
+            NULL as observaciones,
+            m.materia as materia,
+            CASE WHEN c.id IS NULL THEN NULL ELSE CONCAT(c.`año`, '° ', c.division) END as curso
+        FROM profesor_horarios h
+        JOIN materias m ON m.id_materia = h.materia_id
+        LEFT JOIN cursos c ON c.id = h.curso_id
+        WHERE h.profesor_id = %s
+        ORDER BY h.dia_semana, h.hora_clase
+        """,
+        (session['profesor_id'],)
+    )
+    horarios = cur.fetchall()
+
+    cur.close()
+
+    # Mezclar: primero asistencias (más recientes), luego horarios como referencia
+    registros = []
+    registros.extend(asistencias)
+    registros.extend(horarios)
+
+    return render_template(
+        'informe_horarios.html',
+        registros=registros,
+        profesor_nombre=session.get('profesor_nombre', 'Profesor')
+    )
+
+
 # Endpoint: agregar horario de materia por profesor
 @app.route('/horarios/agregar', methods=['POST'])
 def agregar_horario():
@@ -299,7 +363,7 @@ def agregar_horario():
     cur.close()
 
     flash('Horario agregado', 'success')
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('informe_horarios'))
 
 @app.route('/guardar_asistencia', methods=['POST'])
 def guardar_asistencia():
@@ -377,9 +441,11 @@ def guardar_asistencia():
         cur.close()
         
         flash('Asistencia guardada exitosamente', 'success')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('informe_horarios'))
     
     return redirect(url_for('dashboard'))
+
+## en logout cierra sesión el usuario
 
 @app.route('/logout')
 def logout():
@@ -431,3 +497,74 @@ def asignar_materias():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+
+## reportes para profes
+
+@app.route('/reportes_profesor', methods=['GET'])
+def reportes_profesor():
+    if 'profesor_id' not in session:
+        return redirect(url_for('login'))
+    
+    cur = mysql.connection.cursor(DictCursor)
+
+    # Obtener todos los profesores para el select
+    cur.execute("SELECT id_profesor, nombre, apellido FROM profesores ORDER BY apellido, nombre")
+    profesores = cur.fetchall()
+
+    # Filtros desde query params
+    profesor_id = request.args.get('profesor_id')
+    materia_id = request.args.get('materia_id')
+
+    # Materias del profesor seleccionado (corregido)
+    materias = []
+    if profesor_id:
+        cur.execute("""
+            SELECT DISTINCT m.id_materia, m.materia
+            FROM materias m
+            INNER JOIN profesor_materia pm ON m.id_materia = pm.materia_id
+            WHERE pm.profesor_id = %s
+            ORDER BY m.materia
+        """, (profesor_id,))
+        materias = cur.fetchall()
+
+    # Datos del profesor seleccionado
+    profesor_seleccionado = None
+    if profesor_id:
+        cur.execute("SELECT nombre, apellido, dni, materia FROM profesores WHERE id_profesor = %s", (profesor_id,))
+        profesor_seleccionado = cur.fetchone()
+
+    # Asistencias filtradas
+    asistencias = []
+    if profesor_id:
+        query = """
+            SELECT a.id_asistencia, a.fecha, a.hora_clase, a.hora_entrada, 
+                   a.estado, a.observaciones,
+                   m.materia, 
+                   CONCAT(c.`año`, '° ', c.division) as curso
+            FROM asistencia a
+            LEFT JOIN materias m ON a.materia_id = m.id_materia
+            LEFT JOIN cursos c ON a.curso_id = c.id
+            WHERE a.id_profesor = %s
+        """
+        params = [profesor_id]
+        
+        if materia_id:
+            query += " AND a.materia_id = %s"
+            params.append(materia_id)
+        
+        query += " ORDER BY a.fecha DESC, a.hora_entrada DESC"
+        cur.execute(query, params)
+        asistencias = cur.fetchall()
+
+    cur.close()
+    
+    return render_template(
+        'reportes_profesor.html',
+        profesores=profesores,
+        materias=materias,
+        asistencias=asistencias,
+        profesor_id=profesor_id,
+        materia_id=materia_id,
+        profesor_seleccionado=profesor_seleccionado
+    )
